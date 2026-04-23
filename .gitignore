@@ -1,0 +1,42 @@
+# Root-level gitignore for pks4
+
+# Solution file (as requested)
+*.sln
+
+# Build artifacts
+**/bin/
+**/obj/
+
+# User / IDE files
+*.user
+*.rsuser
+*.suo
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+
+# Local SQLite databases
+*.db
+*.db-shm
+*.db-wal
+
+# Test and coverage
+**/TestResults/
+**/coverage/
+*.coverage
+*.coveragexml
+
+# Publish output
+**/publish/
+
+# Images in root (as requested)
+*.jpg
+*.jpeg
+*.webp
+*.png
+*.gif

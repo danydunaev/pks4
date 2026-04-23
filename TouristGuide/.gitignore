@@ -1,0 +1,35 @@
+# Build artifacts
+bin/
+obj/
+
+# User-specific files
+*.user
+*.rsuser
+*.suo
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+
+# Rider / VS Code
+.idea/
+.vscode/
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+
+# NuGet packages cache (project-local if present)
+packages/
+
+# Dotnet test / coverage
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+
+# Publish output
+publish/

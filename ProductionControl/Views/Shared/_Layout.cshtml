@@ -1,0 +1,36 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Управление производством</title>
+    <script type="importmap"></script>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/ProductionControl.styles.css" asp-append-version="true" />
+</head>
+<body>
+    <header class="topbar">
+        <div class="topbar__inner container-fluid">
+            <a class="brand" asp-area="" asp-controller="Home" asp-action="Index">Управление производством</a>
+            <nav class="topnav">
+                <a href="#materials">Материалы</a>
+                <a href="#products">Продукты</a>
+                <a href="#orders">Заказы</a>
+                <a href="#lines">Линии</a>
+                <a href="/api/materials" target="_blank" rel="noreferrer">API</a>
+            </nav>
+        </div>
+    </header>
+    <main role="main" class="app-shell container-fluid">
+            @RenderBody()
+    </main>
+    <footer class="app-footer">
+        <div class="container-fluid">Демо-система на ASP.NET Core MVC + EF Core</div>
+    </footer>
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

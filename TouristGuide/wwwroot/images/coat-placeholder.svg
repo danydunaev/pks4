@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="420" height="520" viewBox="0 0 420 520">
+  <defs>
+    <linearGradient id="shieldBg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#dee2e6"/>
+      <stop offset="100%" stop-color="#adb5bd"/>
+    </linearGradient>
+  </defs>
+  <rect width="420" height="520" fill="#f8f9fa"/>
+  <path d="M210 30 L360 90 L340 285 C326 370 274 439 210 480 C146 439 94 370 80 285 L60 90 Z" fill="url(#shieldBg)" stroke="#6c757d" stroke-width="12"/>
+  <g fill="#495057" font-family="Segoe UI, Arial, sans-serif" text-anchor="middle">
+    <text x="210" y="252" font-size="32" font-weight="700">Coat of Arms</text>
+    <text x="210" y="292" font-size="28">Unavailable</text>
+  </g>
+</svg>

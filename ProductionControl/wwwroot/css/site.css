@@ -1,0 +1,376 @@
+html {
+  font-size: 15px;
+  min-height: 100%;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  color: #f3efe7;
+  background:
+    radial-gradient(circle at top left, rgba(255, 164, 90, 0.18), transparent 30%),
+    radial-gradient(circle at top right, rgba(115, 188, 255, 0.15), transparent 28%),
+    linear-gradient(180deg, #11151d 0%, #171d28 50%, #0d1118 100%);
+  font-family: "Avenir Next", "Trebuchet MS", "Segoe UI", sans-serif;
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  backdrop-filter: blur(18px);
+  background: rgba(10, 13, 18, 0.72);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.topbar__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+}
+
+.brand {
+  color: #fff6ea;
+  text-decoration: none;
+  font-family: Georgia, "Times New Roman", serif;
+  letter-spacing: 0.04em;
+  font-size: 1.25rem;
+}
+
+.topnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.9rem;
+}
+
+.topnav a {
+  color: rgba(255, 246, 234, 0.8);
+  text-decoration: none;
+  font-size: 0.95rem;
+}
+
+.app-shell {
+  padding: 1.5rem;
+}
+
+.app-footer {
+  padding: 1rem 1.5rem 2rem;
+  color: rgba(255, 246, 234, 0.5);
+}
+
+.hero-panel,
+.panel,
+.line-card {
+  background: rgba(19, 24, 34, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(12px);
+}
+
+.hero-panel {
+  border-radius: 28px;
+  padding: 2rem;
+  margin-bottom: 1.5rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem;
+}
+
+.hero-panel h1,
+.panel h2,
+.line-card h3 {
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.hero-panel h1 {
+  font-size: clamp(2.4rem, 5vw, 4.3rem);
+  margin: 0.2rem 0 0.8rem;
+}
+
+.eyebrow,
+.section-label {
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-size: 0.72rem;
+  color: #ffb86b;
+  margin: 0;
+}
+
+.hero-copy {
+  max-width: 58ch;
+  color: rgba(255, 246, 234, 0.74);
+  margin: 0;
+}
+
+.hero-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(120px, 1fr));
+  gap: 0.9rem;
+  min-width: 280px;
+}
+
+.hero-metrics div {
+  padding: 1rem;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.05);
+  text-align: center;
+}
+
+.hero-metrics span {
+  display: block;
+  font-size: 1.8rem;
+  font-weight: 700;
+}
+
+.hero-metrics small {
+  color: rgba(255, 246, 234, 0.7);
+}
+
+.dashboard-grid {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.panel {
+  border-radius: 24px;
+  padding: 1.25rem;
+}
+
+.panel-wide {
+  grid-column: 1 / -1;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+.dashboard-table {
+  width: 100%;
+  border-collapse: collapse;
+  color: inherit;
+}
+
+.dashboard-table th,
+.dashboard-table td {
+  padding: 0.85rem 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  vertical-align: top;
+}
+
+.dashboard-table th {
+  color: rgba(255, 246, 234, 0.6);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+}
+
+.low-stock {
+  background: rgba(255, 110, 110, 0.08);
+}
+
+.stock-pill,
+.status-pill,
+.chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.85rem;
+}
+
+.stock-pill {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.status-pill {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.status-active,
+.status-inprogress {
+  background: rgba(64, 202, 128, 0.18);
+  color: #92f2b9;
+}
+
+.status-pending {
+  background: rgba(255, 193, 7, 0.18);
+  color: #ffe2a0;
+}
+
+.status-completed {
+  background: rgba(99, 179, 255, 0.18);
+  color: #b9e1ff;
+}
+
+.status-cancelled,
+.status-stopped {
+  background: rgba(255, 110, 110, 0.16);
+  color: #ffb2b2;
+}
+
+.filter-bar,
+.stack-form {
+  display: grid;
+  gap: 0.8rem;
+  margin-top: 1rem;
+}
+
+.filter-bar {
+  grid-template-columns: 1fr 220px auto;
+  align-items: center;
+}
+
+.form-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.form-grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.span-2 {
+  grid-column: span 2;
+}
+
+.span-3 {
+  grid-column: 1 / -1;
+}
+
+.helper-text {
+  margin: 0;
+  color: rgba(255, 246, 234, 0.62);
+}
+
+.inline-form,
+.inline-actions,
+.line-form {
+  display: inline-flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.compact-input {
+  max-width: 110px;
+}
+
+.chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.chip {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 246, 234, 0.86);
+}
+
+.line-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  gap: 1rem;
+}
+
+.line-card {
+  border-radius: 22px;
+  padding: 1rem;
+}
+
+.line-card__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.line-card__head h3 {
+  margin: 0 0 0.3rem;
+}
+
+.line-product,
+.progress-label {
+  color: rgba(255, 246, 234, 0.72);
+}
+
+.progress-track {
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 0.5rem 0;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #ffb86b, #7bd2ff);
+  transition: width 0.25s linear;
+}
+
+input.form-control,
+select.form-select,
+textarea.form-control {
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff6ea;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+input.form-control::placeholder,
+textarea.form-control::placeholder {
+  color: rgba(255, 246, 234, 0.45);
+}
+
+input.form-control:focus,
+select.form-select:focus,
+textarea.form-control:focus {
+  border-color: #ffb86b;
+  box-shadow: 0 0 0 0.18rem rgba(255, 184, 107, 0.18);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #ff8d4e, #ffb86b);
+  border: none;
+  color: #1a1a1a;
+  font-weight: 700;
+}
+
+.btn-secondary,
+.btn-outline-light,
+.btn-outline-info,
+.btn-outline-danger,
+.btn-success {
+  border-width: 1px;
+}
+
+@media (max-width: 992px) {
+  .hero-panel,
+  .filter-bar,
+  .form-grid-3 {
+    grid-template-columns: 1fr;
+  }
+
+  .span-2,
+  .span-3 {
+    grid-column: auto;
+  }
+
+  .hero-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .topbar__inner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

@@ -1,0 +1,48 @@
+@model IReadOnlyList<TouristGuide.Models.City>
+@{
+    ViewData["Title"] = "Города";
+    var search = ViewData["Search"]?.ToString() ?? string.Empty;
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="mb-0">Tourist Guide</h1>
+</div>
+
+<form method="get" asp-action="Index" class="row g-2 mb-4">
+    <div class="col-md-8">
+        <input type="text" class="form-control" name="search" value="@search" placeholder="Поиск города по названию" />
+    </div>
+    <div class="col-md-4 d-grid d-md-flex gap-2">
+        <button type="submit" class="btn btn-primary">Найти</button>
+        <a asp-action="Index" class="btn btn-outline-secondary">Сбросить</a>
+    </div>
+</form>
+
+@if (!Model.Any())
+{
+    <div class="alert alert-warning">Города не найдены.</div>
+}
+else
+{
+    <div class="row g-4">
+        @foreach (var city in Model)
+        {
+            <div class="col-lg-4 col-md-6">
+                <div class="card h-100 shadow-sm">
+                    <img src="@city.ImageUrl"
+                        class="card-img-top"
+                        alt="@city.Name"
+                        style="height: 220px; object-fit: cover;"
+                        onerror="this.onerror=null;this.src='/images/photo-placeholder.svg';" />
+                    <div class="card-body d-flex flex-column">
+                        <h5 class="card-title">@city.Name</h5>
+                        <p class="mb-1"><strong>Регион:</strong> @city.Region</p>
+                        <p class="mb-2"><strong>Население:</strong> @city.Population.ToString("N0")</p>
+                        <p class="text-muted flex-grow-1">@city.ShortDescription</p>
+                        <a asp-action="Details" asp-route-id="@city.Id" class="btn btn-outline-primary mt-2">Открыть страницу города</a>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}

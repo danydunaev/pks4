@@ -1,0 +1,335 @@
+﻿@model ProductionControl.ViewModels.DashboardViewModel
+@{
+    ViewData["Title"] = "Панель управления";
+    var categories = ViewBag.Categories as IEnumerable<string> ?? Array.Empty<string>();
+    var availableLines = ViewBag.AvailableLines as IEnumerable<ProductionControl.Models.ProductionLine> ?? Array.Empty<ProductionControl.Models.ProductionLine>();
+
+    static string TranslateStatus(string status) => status switch
+    {
+        "Pending" => "Ожидает",
+        "InProgress" => "В работе",
+        "Completed" => "Завершен",
+        "Cancelled" => "Отменен",
+        "Active" => "Работает",
+        "Stopped" => "Остановлена",
+        _ => status
+    };
+}
+
+<section class="hero-panel">
+    <div>
+        <p class="eyebrow">Интерактивная производственная панель</p>
+        <h1>Управление производством</h1>
+        <p class="hero-copy">Планируйте заказы, управляйте линиями и контролируйте материалы из одного окна. API повторяет функциональность панели для интеграции и тестирования.</p>
+    </div>
+    <div class="hero-metrics">
+        <div><span>@Model.MaterialCount</span><small>Материалов</small></div>
+        <div><span>@Model.LowStockMaterialCount</span><small>Низкий запас</small></div>
+        <div><span>@Model.ActiveOrderCount</span><small>Активные заказы</small></div>
+        <div><span>@Model.RunningLineCount</span><small>Работающие линии</small></div>
+    </div>
+</section>
+
+<div class="dashboard-grid">
+    <section class="panel panel-wide" id="materials">
+        <div class="panel-header">
+            <div>
+                <p class="section-label">Материалы</p>
+                <h2>Контроль склада</h2>
+            </div>
+        </div>
+
+        <div class="table-wrap">
+            <table class="dashboard-table">
+                <thead>
+                    <tr>
+                        <th>Название</th>
+                        <th>Количество</th>
+                        <th>Ед. изм.</th>
+                        <th>Минимум</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var material in Model.Materials)
+                    {
+                        <tr class="@(material.Quantity <= material.MinimalStock ? "low-stock" : "")">
+                            <td>@material.Name</td>
+                            <td><span class="stock-pill">@material.Quantity</span></td>
+                            <td>@material.UnitOfMeasure</td>
+                            <td>@material.MinimalStock</td>
+                            <td>
+                                <form asp-action="ReplenishMaterial" method="post" class="inline-form">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@material.Id" />
+                                    <input type="number" name="amount" step="0.1" min="0" value="10" class="form-control form-control-sm compact-input" />
+                                    <button class="btn btn-sm btn-outline-light" type="submit">Пополнить</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <form asp-action="AddMaterial" method="post" class="stack-form">
+            @Html.AntiForgeryToken()
+            <div class="form-grid form-grid-3">
+                <input class="form-control" name="Name" placeholder="Название материала" required />
+                <input class="form-control" name="Quantity" type="number" step="0.1" placeholder="Количество" required />
+                <input class="form-control" name="UnitOfMeasure" placeholder="Единица измерения" required />
+                <input class="form-control" name="MinimalStock" type="number" step="0.1" placeholder="Минимальный запас" required />
+            </div>
+            <button class="btn btn-primary" type="submit">Добавить материал</button>
+        </form>
+    </section>
+
+    <section class="panel panel-wide" id="products">
+        <div class="panel-header">
+            <div>
+                <p class="section-label">Продукты</p>
+                <h2>Каталог и привязка материалов</h2>
+            </div>
+        </div>
+
+        <form method="get" class="filter-bar">
+            <input class="form-control" name="productSearch" value="@Model.ProductSearch" placeholder="Поиск продукта" />
+            <select class="form-select" name="productCategory">
+                <option value="">Все категории</option>
+                @foreach (var category in categories)
+                {
+                    if (category == Model.ProductCategory)
+                    {
+                        <option value="@category" selected="selected">@category</option>
+                    }
+                    else
+                    {
+                        <option value="@category">@category</option>
+                    }
+                }
+            </select>
+            <input type="hidden" name="orderStatus" value="@Model.OrderStatus" />
+            <button class="btn btn-secondary" type="submit">Фильтр</button>
+        </form>
+
+        <div class="table-wrap">
+            <table class="dashboard-table">
+                <thead>
+                    <tr>
+                        <th>Название</th>
+                        <th>Время производства</th>
+                        <th>Категория</th>
+                        <th>Материалы</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var product in Model.Products)
+                    {
+                        <tr>
+                            <td>@product.Name</td>
+                            <td>@product.ProductionTimePerUnit мин/шт</td>
+                            <td>@product.Category</td>
+                            <td>
+                                <div class="chip-list">
+                                    @foreach (var relation in product.ProductMaterials)
+                                    {
+                                        <span class="chip">@relation.Material?.Name: @relation.QuantityNeeded</span>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <form asp-action="CreateProduct" method="post" class="stack-form">
+            @Html.AntiForgeryToken()
+            <div class="form-grid form-grid-3">
+                <input class="form-control" name="Name" placeholder="Название продукта" required />
+                <input class="form-control" name="Category" placeholder="Категория" required />
+                <input class="form-control" name="ProductionTimePerUnit" type="number" min="1" placeholder="Минут на единицу" required />
+                <input class="form-control" name="MinimalStock" type="number" min="0" placeholder="Минимальный запас" />
+                <input class="form-control span-2" name="Description" placeholder="Описание" />
+                <textarea class="form-control span-3" name="Specifications" rows="3" placeholder="JSON со спецификацией"></textarea>
+                <textarea class="form-control span-3" name="MaterialsText" rows="2" placeholder="Материалы в формате: materialId:quantity, materialId:quantity"></textarea>
+            </div>
+            <p class="helper-text">Привязка материалов необязательна. Используйте второе поле для связи продукта с компонентами.</p>
+            <button class="btn btn-primary" type="submit">Создать продукт</button>
+        </form>
+    </section>
+
+    <section class="panel" id="orders">
+        <div class="panel-header">
+            <div>
+                <p class="section-label">Заказы</p>
+                <h2>Производственная очередь</h2>
+            </div>
+        </div>
+
+        <form method="get" class="filter-bar">
+            <input type="hidden" name="productSearch" value="@Model.ProductSearch" />
+            <input type="hidden" name="productCategory" value="@Model.ProductCategory" />
+            <select class="form-select" name="orderStatus">
+                <option value="">Все статусы</option>
+                @if (Model.OrderStatus == "active")
+                {
+                    <option value="active" selected="selected">Активные</option>
+                }
+                else
+                {
+                    <option value="active">Активные</option>
+                }
+                @if (Model.OrderStatus == "Pending")
+                {
+                    <option value="Pending" selected="selected">Ожидает</option>
+                }
+                else
+                {
+                    <option value="Pending">Ожидает</option>
+                }
+                @if (Model.OrderStatus == "InProgress")
+                {
+                    <option value="InProgress" selected="selected">В работе</option>
+                }
+                else
+                {
+                    <option value="InProgress">В работе</option>
+                }
+                @if (Model.OrderStatus == "Completed")
+                {
+                    <option value="Completed" selected="selected">Завершен</option>
+                }
+                else
+                {
+                    <option value="Completed">Завершен</option>
+                }
+                @if (Model.OrderStatus == "Cancelled")
+                {
+                    <option value="Cancelled" selected="selected">Отменен</option>
+                }
+                else
+                {
+                    <option value="Cancelled">Отменен</option>
+                }
+            </select>
+            <button class="btn btn-secondary" type="submit">Фильтр</button>
+        </form>
+
+        <div class="table-wrap">
+            <table class="dashboard-table">
+                <thead>
+                    <tr>
+                        <th>Номер</th>
+                        <th>Продукт</th>
+                        <th>Количество</th>
+                        <th>Статус</th>
+                        <th>Срок</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var order in Model.Orders)
+                    {
+                        <tr data-order-id="@order.Id">
+                            <td>#@order.Id</td>
+                            <td>@order.Product?.Name</td>
+                            <td>@order.Quantity</td>
+                            <td><span class="status-pill status-@order.Status.ToLowerInvariant() order-status">@TranslateStatus(order.Status)</span></td>
+                            <td class="order-deadline">@order.EstimatedEndDate.ToString("dd MMM HH:mm")</td>
+                            <td>
+                                <div class="inline-actions">
+                                    <form asp-action="StartOrder" method="post">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@order.Id" />
+                                        <button class="btn btn-sm btn-success" type="submit">Запустить</button>
+                                    </form>
+                                    <form asp-action="CancelOrder" method="post">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@order.Id" />
+                                        <button class="btn btn-sm btn-outline-danger" type="submit">Отменить</button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <form asp-action="CreateOrder" method="post" class="stack-form" data-order-form>
+            @Html.AntiForgeryToken()
+            <div class="form-grid form-grid-3">
+                <select class="form-select" name="ProductId" required>
+                    <option value="">Выберите продукт</option>
+                    @foreach (var product in Model.Products)
+                    {
+                        <option value="@product.Id" data-production-time="@product.ProductionTimePerUnit">@product.Name</option>
+                    }
+                </select>
+                <input class="form-control" name="Quantity" type="number" min="1" placeholder="Количество" required />
+                <select class="form-select" name="ProductionLineId">
+                    <option value="">Линия не назначена</option>
+                    @foreach (var line in availableLines)
+                    {
+                        <option value="@line.Id" data-efficiency="@line.EfficiencyFactor">@line.Name</option>
+                    }
+                </select>
+            </div>
+            <button class="btn btn-primary" type="submit">Создать заказ</button>
+        </form>
+    </section>
+
+    <section class="panel" id="lines">
+        <div class="panel-header">
+            <div>
+                <p class="section-label">Линии</p>
+                <h2>Панель производственных линий</h2>
+            </div>
+        </div>
+
+        <div class="line-grid">
+            @foreach (var line in Model.Lines)
+            {
+                <article class="line-card" data-line-id="@line.Id">
+                    <div class="line-card__head">
+                        <div>
+                            <h3>@line.Name</h3>
+                            <span class="status-pill status-@line.Status.ToLowerInvariant() line-status">@TranslateStatus(line.Status)</span>
+                        </div>
+                        <strong>@line.EfficiencyFactor.ToString("0.0")x</strong>
+                    </div>
+                    <p class="line-product">Текущий продукт: <span class="line-product-name">@(line.CurrentWorkOrder?.Product?.Name ?? "Нет активного заказа")</span></p>
+                    <div class="progress-track"><div class="progress-fill" style="width:@(line.CurrentWorkOrder?.ProgressPercent ?? 0)%"></div></div>
+                    <p class="progress-label">Прогресс: <span class="line-progress-value">@(line.CurrentWorkOrder?.ProgressPercent ?? 0)</span>%</p>
+                    <div class="inline-actions">
+                        <form asp-action="UpdateLineStatus" method="post" class="line-form">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="id" value="@line.Id" />
+                            <input type="hidden" name="efficiencyFactor" value="@line.EfficiencyFactor" />
+                            <input type="hidden" name="status" value="@(line.Status == "Active" ? "Stopped" : "Active")" />
+                            <button class="btn btn-sm btn-outline-light" type="submit">@(line.Status == "Active" ? "Остановить линию" : "Запустить линию")</button>
+                        </form>
+                        <form asp-action="UpdateLineStatus" method="post" class="line-form">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="id" value="@line.Id" />
+                            <input type="hidden" name="status" value="@line.Status" />
+                            <input class="form-control form-control-sm compact-input" name="efficiencyFactor" type="number" min="0.5" max="2" step="0.1" value="@line.EfficiencyFactor" />
+                            <button class="btn btn-sm btn-outline-info" type="submit">Сохранить коэффициент</button>
+                        </form>
+                    </div>
+
+                    <div class="schedule-list">
+                        @foreach (var order in line.WorkOrders.OrderBy(order => order.StartDate))
+                        {
+                            <div class="schedule-item">
+                                <span>#@order.Id @order.Product?.Name</span>
+                                <small>@order.StartDate.ToString("dd MMM HH:mm")</small>
+                            </div>
+                        }
+                    </div>
+                </article>
+            }
+        </div>
+    </section>
+</div>

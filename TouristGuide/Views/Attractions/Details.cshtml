@@ -1,0 +1,23 @@
+@model TouristGuide.Models.Attraction
+@{
+    ViewData["Title"] = Model.Name;
+}
+
+<div class="mb-3">
+    <a asp-controller="Cities" asp-action="Details" asp-route-id="@Model.CityId" class="btn btn-link px-0">&larr; Назад к городу</a>
+</div>
+
+<div class="card shadow-sm">
+        <img src="@Model.ImageUrl"
+            class="card-img-top"
+            alt="@Model.Name"
+            style="max-height: 420px; object-fit: cover;"
+            onerror="this.onerror=null;this.src='/images/photo-placeholder.svg';" />
+    <div class="card-body">
+        <h1>@Model.Name</h1>
+        <p><strong>Город:</strong> @Model.City?.Name</p>
+        <p><strong>История:</strong> @Model.History</p>
+        <p><strong>Часы работы:</strong> @Model.OpeningHours</p>
+        <p><strong>Стоимость посещения:</strong> @(string.IsNullOrWhiteSpace(Model.VisitCost) ? "Не указана" : Model.VisitCost)</p>
+    </div>
+</div>
