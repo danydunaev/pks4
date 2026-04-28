@@ -30,6 +30,14 @@
     </div>
 </section>
 
+@if (TempData["Error"] != null)
+{
+    <div class="panel panel-wide" style="border-left:4px solid #c00; padding:12px; margin-bottom:16px; background:#2b2b2b; color:#fff;">
+        <strong>Ошибка:</strong>
+        <div style="margin-top:6px;">@TempData["Error"]</div>
+    </div>
+}
+
 <div class="dashboard-grid">
     <section class="panel panel-wide" id="materials">
         <div class="panel-header">
@@ -119,6 +127,8 @@
                         <th>Название</th>
                         <th>Время производства</th>
                         <th>Категория</th>
+                        <th>Описание</th>
+                        <th>Спецификация</th>
                         <th>Материалы</th>
                     </tr>
                 </thead>
@@ -129,6 +139,29 @@
                             <td>@product.Name</td>
                             <td>@product.ProductionTimePerUnit мин/шт</td>
                             <td>@product.Category</td>
+                            <td>
+                                @if (!string.IsNullOrWhiteSpace(product.Description))
+                                {
+                                    <span title="@product.Description" style="cursor: help;">@(product.Description.Length > 30 ? product.Description.Substring(0, 30) + "…" : product.Description)</span>
+                                }
+                                else
+                                {
+                                    <span style="color: #ccc;">—</span>
+                                }
+                            </td>
+                            <td>
+                                @if (!string.IsNullOrWhiteSpace(product.Specifications))
+                                {
+                                    <details style="cursor: pointer; font-size: 0.9em; color: #999;">
+                                        <summary>📋 JSON</summary>
+                                        <pre style="background: #f5f5f5; padding: 10px; margin-top: 5px; font-size: 0.85em; border-radius: 3px; overflow-x: auto;">@product.Specifications</pre>
+                                    </details>
+                                }
+                                else
+                                {
+                                    <span style="color: #ccc;">—</span>
+                                }
+                            </td>
                             <td>
                                 <div class="chip-list">
                                     @foreach (var relation in product.ProductMaterials)
@@ -152,9 +185,20 @@
                 <input class="form-control" name="MinimalStock" type="number" min="0" placeholder="Минимальный запас" />
                 <input class="form-control span-2" name="Description" placeholder="Описание" />
                 <textarea class="form-control span-3" name="Specifications" rows="3" placeholder="JSON со спецификацией"></textarea>
-                <textarea class="form-control span-3" name="MaterialsText" rows="2" placeholder="Материалы в формате: materialId:quantity, materialId:quantity"></textarea>
+                <textarea class="form-control span-3" name="MaterialsText" rows="2" placeholder="Материалы: 1:2, Стальной лист:5, 3=10"></textarea>
             </div>
-            <p class="helper-text">Привязка материалов необязательна. Используйте второе поле для связи продукта с компонентами.</p>
+            <div class="helper-text">
+                <p>Привязка материалов необязательна. Можно писать ID или название материала, например <strong>1:2</strong>, <strong>Стальной лист:5</strong> или <strong>3=10</strong>.</p>
+                <details>
+                    <summary>Показать справочник материалов</summary>
+                    <div class="chip-list" style="margin-top: 0.75rem;">
+                        @foreach (var material in Model.Materials)
+                        {
+                            <span class="chip">#@material.Id @material.Name</span>
+                        }
+                    </div>
+                </details>
+            </div>
             <button class="btn btn-primary" type="submit">Создать продукт</button>
         </form>
     </section>

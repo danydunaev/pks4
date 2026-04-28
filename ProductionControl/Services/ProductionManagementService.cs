@@ -1,11 +1,14 @@
 using Microsoft.EntityFrameworkCore;
 using ProductionControl.Data;
 using ProductionControl.Models;
+using System.Collections.Concurrent;
 
 namespace ProductionControl.Services;
 
 public class ProductionManagementService(ApplicationDbContext dbContext)
 {
+    private static readonly ConcurrentDictionary<int, DateTime> PausedSinceByLineId = new();
+
     private async Task RefreshOrderProgressAsync()
     {
         var now = DateTime.Now;
@@ -18,7 +21,9 @@ public class ProductionManagementService(ApplicationDbContext dbContext)
 
         foreach (var order in orders)
         {
-            var hasAssignedAndActiveLine = order.ProductionLine is not null && order.ProductionLine.CurrentWorkOrderId == order.Id;
+            var hasAssignedAndActiveLine = order.ProductionLine is not null
+                && order.ProductionLine.Status == "Active"
+                && order.ProductionLine.CurrentWorkOrderId == order.Id;
 
             if (order.Status == "Pending" && !hasAssignedAndActiveLine)
             {
@@ -34,6 +39,13 @@ public class ProductionManagementService(ApplicationDbContext dbContext)
                 }
 
                 hasChanges = true;
+            }
+
+            if (order.ProductionLine is not null
+                && order.ProductionLine.CurrentWorkOrderId == order.Id
+                && order.ProductionLine.Status != "Active")
+            {
+                continue;
             }
 
             var totalMinutes = Math.Max(1.0, (order.EstimatedEndDate - order.StartDate).TotalMinutes);
@@ -194,15 +206,79 @@ public class ProductionManagementService(ApplicationDbContext dbContext)
     public async Task<ProductionLine> UpdateLineStatusAsync(int id, string status)
     {
         var line = await dbContext.ProductionLines.SingleAsync(entity => entity.Id == id);
+        await RefreshOrderProgressAsync();
+
+        var currentWorkOrder = await dbContext.WorkOrders
+            .SingleOrDefaultAsync(order => order.Id == line.CurrentWorkOrderId);
+
+        var wasStopped = line.Status == "Stopped";
+        var pauseStartedAt = PausedSinceByLineId.TryRemove(line.Id, out var storedPauseStart)
+            ? storedPauseStart
+            : (DateTime?)null;
+
         line.Status = status;
+
+        if (currentWorkOrder is not null)
+        {
+            if (status == "Stopped")
+            {
+                var now = DateTime.Now;
+                var totalMinutes = Math.Max(1.0, (currentWorkOrder.EstimatedEndDate - currentWorkOrder.StartDate).TotalMinutes);
+                var elapsedMinutes = Math.Max(0.0, (now - currentWorkOrder.StartDate).TotalMinutes);
+                var calculatedPercent = (int)Math.Clamp(Math.Floor((elapsedMinutes / totalMinutes) * 100.0), 0, 100);
+                if (elapsedMinutes > 0 && calculatedPercent == 0)
+                {
+                    calculatedPercent = 1;
+                }
+
+                currentWorkOrder.ProgressPercent = Math.Max(currentWorkOrder.ProgressPercent, calculatedPercent);
+                PausedSinceByLineId[line.Id] = DateTime.Now;
+            }
+            else if (status == "Active" && wasStopped && pauseStartedAt is not null)
+            {
+                var pauseDuration = DateTime.Now - pauseStartedAt.Value;
+                currentWorkOrder.StartDate = currentWorkOrder.StartDate.Add(pauseDuration);
+                currentWorkOrder.EstimatedEndDate = currentWorkOrder.EstimatedEndDate.Add(pauseDuration);
+                currentWorkOrder.Status = "InProgress";
+                currentWorkOrder.ProgressPercent = Math.Max(currentWorkOrder.ProgressPercent, 1);
+            }
+        }
+
         await dbContext.SaveChangesAsync();
         return line;
     }
 
     public async Task<ProductionLine> UpdateLineEfficiencyAsync(int id, double factor)
     {
-        var line = await dbContext.ProductionLines.SingleAsync(entity => entity.Id == id);
+        var line = await dbContext.ProductionLines
+            .Include(entity => entity.CurrentWorkOrder)
+            .ThenInclude(workOrder => workOrder!.Product)
+            .SingleAsync(entity => entity.Id == id);
+
         line.EfficiencyFactor = Math.Clamp(factor, 0.5, 2.0);
+
+        var currentWorkOrder = line.CurrentWorkOrder;
+        if (currentWorkOrder is not null
+            && (currentWorkOrder.Status == "Pending" || currentWorkOrder.Status == "InProgress")
+            && currentWorkOrder.Product is not null)
+        {
+            var now = DateTime.Now;
+            var totalMinutes = Math.Max(1.0, (currentWorkOrder.Product.ProductionTimePerUnit * currentWorkOrder.Quantity) / line.EfficiencyFactor);
+            var elapsedMinutes = Math.Max(0.0, (now - currentWorkOrder.StartDate).TotalMinutes);
+            var currentPercent = currentWorkOrder.Status == "InProgress"
+                ? (int)Math.Clamp(Math.Floor((elapsedMinutes / Math.Max(1.0, (currentWorkOrder.EstimatedEndDate - currentWorkOrder.StartDate).TotalMinutes)) * 100.0), 0, 100)
+                : currentWorkOrder.ProgressPercent;
+
+            if (elapsedMinutes > 0 && currentPercent == 0)
+            {
+                currentPercent = 1;
+            }
+
+            currentWorkOrder.ProgressPercent = Math.Max(currentWorkOrder.ProgressPercent, currentPercent);
+            currentWorkOrder.StartDate = now.AddMinutes(-(totalMinutes * currentPercent / 100.0));
+            currentWorkOrder.EstimatedEndDate = currentWorkOrder.StartDate.AddMinutes(totalMinutes);
+        }
+
         await dbContext.SaveChangesAsync();
         return line;
     }
@@ -316,10 +392,30 @@ public class ProductionManagementService(ApplicationDbContext dbContext)
 
     public async Task<WorkOrder> SetOrderStatusAsync(int id, string status)
     {
-        var order = await dbContext.WorkOrders.Include(entity => entity.ProductionLine).SingleAsync(entity => entity.Id == id);
+        var order = await dbContext.WorkOrders
+            .Include(entity => entity.ProductionLine)
+            .Include(entity => entity.Product)
+            .ThenInclude(product => product!.ProductMaterials)
+            .ThenInclude(productMaterial => productMaterial.Material)
+            .SingleAsync(entity => entity.Id == id);
+
+        if (order.Status == status)
+        {
+            return order;
+        }
+
         order.Status = status;
 
-        if (status is "Cancelled" or "Completed")
+        if (status == "Cancelled")
+        {
+            ReturnUnusedMaterialsAsync(order);
+
+            if (order.ProductionLine is not null)
+            {
+                order.ProductionLine.CurrentWorkOrderId = null;
+            }
+        }
+        else if (status == "Completed")
         {
             order.ProgressPercent = status == "Completed" ? 100 : order.ProgressPercent;
             if (order.ProductionLine is not null)
@@ -334,6 +430,35 @@ public class ProductionManagementService(ApplicationDbContext dbContext)
 
         await dbContext.SaveChangesAsync();
         return order;
+    }
+
+    private void ReturnUnusedMaterialsAsync(WorkOrder order)
+    {
+        if (order.Product is null || order.Product.ProductMaterials.Count == 0 || order.ProgressPercent >= 100)
+        {
+            return;
+        }
+
+        var unusedFraction = Math.Clamp((100 - order.ProgressPercent) / 100m, 0m, 1m);
+        if (unusedFraction <= 0m)
+        {
+            return;
+        }
+
+        foreach (var productMaterial in order.Product.ProductMaterials)
+        {
+            if (productMaterial.Material is null)
+            {
+                continue;
+            }
+
+            var reservedQuantity = productMaterial.QuantityNeeded * order.Quantity;
+            var returnQuantity = reservedQuantity * unusedFraction;
+            if (returnQuantity > 0m)
+            {
+                productMaterial.Material.Quantity += returnQuantity;
+            }
+        }
     }
 
     public async Task<WorkOrder> GetOrderDetailsAsync(int id)

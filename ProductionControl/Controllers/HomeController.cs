@@ -58,7 +58,12 @@ public class HomeController(ProductionManagementService service) : Controller
     {
         if (ModelState.IsValid)
         {
-            request.Materials = ParseMaterials(request.MaterialsText ?? request.Specifications);
+            var availableMaterials = await service.GetMaterialsAsync(false);
+            var materialsText = !string.IsNullOrWhiteSpace(request.MaterialsText)
+                ? request.MaterialsText
+                : request.Specifications;
+
+            request.Materials = ParseMaterials(materialsText, availableMaterials);
             await service.CreateProductAsync(request);
         }
 
@@ -71,7 +76,16 @@ public class HomeController(ProductionManagementService service) : Controller
     {
         if (ModelState.IsValid)
         {
-            await service.CreateOrderAsync(request);
+            try
+            {
+                await service.CreateOrderAsync(request);
+            }
+            catch (InvalidOperationException ex)
+            {
+                // Show a friendly error on the dashboard instead of throwing 500
+                TempData["Error"] = ex.Message;
+                return RedirectToAction(nameof(Index));
+            }
         }
 
         return RedirectToAction(nameof(Index));
@@ -102,7 +116,7 @@ public class HomeController(ProductionManagementService service) : Controller
         return RedirectToAction(nameof(Index));
     }
 
-    private static List<ProductMaterialRequest> ParseMaterials(string? specificationText)
+    private static List<ProductMaterialRequest> ParseMaterials(string? specificationText, IEnumerable<Material> availableMaterials)
     {
         if (string.IsNullOrWhiteSpace(specificationText))
         {
@@ -110,16 +124,33 @@ public class HomeController(ProductionManagementService service) : Controller
         }
 
         var assignments = new List<ProductMaterialRequest>();
+        var materialsByName = availableMaterials
+            .GroupBy(material => material.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+
         var parts = specificationText.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         foreach (var part in parts)
         {
-            var tokens = part.Split(':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            var tokens = part.Split([':', '=', 'x', 'X'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             if (tokens.Length != 2)
             {
                 continue;
             }
 
-            if (int.TryParse(tokens[0], out var materialId) && decimal.TryParse(tokens[1], out var quantityNeeded))
+            var materialToken = tokens[0];
+            var materialId = 0;
+
+            if (!int.TryParse(materialToken, out materialId))
+            {
+                if (!materialsByName.TryGetValue(materialToken, out var matchedMaterial))
+                {
+                    continue;
+                }
+
+                materialId = matchedMaterial.Id;
+            }
+
+            if (materialId > 0 && decimal.TryParse(tokens[1], out var quantityNeeded))
             {
                 assignments.Add(new ProductMaterialRequest
                 {
