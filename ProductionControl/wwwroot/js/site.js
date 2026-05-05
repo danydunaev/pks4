@@ -48,6 +48,25 @@ document.addEventListener("DOMContentLoaded", () => {
 		});
 	};
 
+	const registerLineStatusProgressCapture = () => {
+		document.querySelectorAll(".line-status-form").forEach((form) => {
+			form.addEventListener("submit", () => {
+				const card = form.closest(".line-card");
+				const progressText = card?.querySelector(".line-progress-value");
+				const hiddenInput = form.querySelector('input[name="displayedProgress"]');
+
+				if (!progressText || !hiddenInput) {
+					return;
+				}
+
+				const displayValue = Number(progressText.textContent || 0);
+				if (!Number.isNaN(displayValue)) {
+					hiddenInput.value = String(Math.max(0, Math.min(100, Math.round(displayValue))));
+				}
+			});
+		});
+	};
+
 	const calculateDisplayProgress = (state) => {
 		if (!state || !state.orderId) {
 			return 0;
@@ -206,6 +225,7 @@ document.addEventListener("DOMContentLoaded", () => {
 	}
 
 	registerScrollPersistence();
+	registerLineStatusProgressCapture();
 	restoreScrollPosition();
 
 	refreshLiveData();

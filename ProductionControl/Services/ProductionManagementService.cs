@@ -2,15 +2,34 @@ using Microsoft.EntityFrameworkCore;
 using ProductionControl.Data;
 using ProductionControl.Models;
 using System.Collections.Concurrent;
+using System.Threading;
 
 namespace ProductionControl.Services;
 
 public class ProductionManagementService(ApplicationDbContext dbContext)
 {
     private static readonly ConcurrentDictionary<int, DateTime> PausedSinceByLineId = new();
+    private static readonly SemaphoreSlim ProgressRefreshLock = new(1, 1);
+    private static readonly TimeSpan ProgressRefreshInterval = TimeSpan.FromMilliseconds(900);
+    private static DateTime LastProgressRefreshUtc = DateTime.MinValue;
 
-    private async Task RefreshOrderProgressAsync()
+    private async Task RefreshOrderProgressAsync(bool force = false)
     {
+        var nowUtc = DateTime.UtcNow;
+        if (!force && nowUtc - LastProgressRefreshUtc < ProgressRefreshInterval)
+        {
+            return;
+        }
+
+        await ProgressRefreshLock.WaitAsync();
+        try
+        {
+            nowUtc = DateTime.UtcNow;
+            if (!force && nowUtc - LastProgressRefreshUtc < ProgressRefreshInterval)
+            {
+                return;
+            }
+
         var now = DateTime.Now;
         var orders = await dbContext.WorkOrders
             .Include(order => order.ProductionLine)
@@ -80,11 +99,18 @@ public class ProductionManagementService(ApplicationDbContext dbContext)
         {
             await dbContext.SaveChangesAsync();
         }
+
+            LastProgressRefreshUtc = DateTime.UtcNow;
+        }
+        finally
+        {
+            ProgressRefreshLock.Release();
+        }
     }
 
     public async Task<List<Material>> GetMaterialsAsync(bool lowStockOnly)
     {
-        var query = dbContext.Materials.AsQueryable();
+        var query = dbContext.Materials.AsNoTracking().AsQueryable();
         if (lowStockOnly)
         {
             query = query.Where(material => material.Quantity <= material.MinimalStock);
@@ -119,6 +145,7 @@ public class ProductionManagementService(ApplicationDbContext dbContext)
     public async Task<List<Product>> GetProductsAsync(string? category, string? search)
     {
         var query = dbContext.Products
+            .AsNoTracking()
             .Include(product => product.ProductMaterials)
             .ThenInclude(productMaterial => productMaterial.Material)
             .AsQueryable();
@@ -139,6 +166,7 @@ public class ProductionManagementService(ApplicationDbContext dbContext)
     public async Task<List<string>> GetCategoriesAsync()
     {
         return await dbContext.Products
+            .AsNoTracking()
             .Select(product => product.Category)
             .Distinct()
             .OrderBy(category => category)
@@ -177,6 +205,7 @@ public class ProductionManagementService(ApplicationDbContext dbContext)
     public async Task<List<Material>> GetProductMaterialsAsync(int productId)
     {
         return await dbContext.ProductMaterials
+            .AsNoTracking()
             .Where(productMaterial => productMaterial.ProductId == productId)
             .Include(productMaterial => productMaterial.Material)
             .Select(productMaterial => productMaterial.Material!)
@@ -189,6 +218,7 @@ public class ProductionManagementService(ApplicationDbContext dbContext)
         await RefreshOrderProgressAsync();
 
         var query = dbContext.ProductionLines
+            .AsNoTracking()
             .Include(line => line.CurrentWorkOrder)
             .ThenInclude(workOrder => workOrder!.Product)
             .Include(line => line.WorkOrders)
@@ -203,7 +233,7 @@ public class ProductionManagementService(ApplicationDbContext dbContext)
         return await query.OrderBy(line => line.Name).ToListAsync();
     }
 
-    public async Task<ProductionLine> UpdateLineStatusAsync(int id, string status)
+    public async Task<ProductionLine> UpdateLineStatusAsync(int id, string status, int? displayedProgress = null)
     {
         var line = await dbContext.ProductionLines.SingleAsync(entity => entity.Id == id);
         await RefreshOrderProgressAsync();
@@ -231,7 +261,11 @@ public class ProductionManagementService(ApplicationDbContext dbContext)
                     calculatedPercent = 1;
                 }
 
-                currentWorkOrder.ProgressPercent = Math.Max(currentWorkOrder.ProgressPercent, calculatedPercent);
+                var requestedPercent = displayedProgress.HasValue
+                    ? (int)Math.Clamp(displayedProgress.Value, 0, 100)
+                    : 0;
+
+                currentWorkOrder.ProgressPercent = Math.Max(currentWorkOrder.ProgressPercent, Math.Max(calculatedPercent, requestedPercent));
                 PausedSinceByLineId[line.Id] = DateTime.Now;
             }
             else if (status == "Active" && wasStopped && pauseStartedAt is not null)
@@ -285,9 +319,8 @@ public class ProductionManagementService(ApplicationDbContext dbContext)
 
     public async Task<List<WorkOrder>> GetOrdersAsync(string? status, string? date)
     {
-        await RefreshOrderProgressAsync();
-
         var query = dbContext.WorkOrders
+            .AsNoTracking()
             .Include(order => order.Product)
             .Include(order => order.ProductionLine)
             .AsQueryable();
@@ -404,6 +437,11 @@ public class ProductionManagementService(ApplicationDbContext dbContext)
             return order;
         }
 
+        if (status == "InProgress" && order.Status is "Cancelled" or "Completed")
+        {
+            throw new InvalidOperationException("Нельзя запустить заказ после статуса 'Отменен' или 'Завершен'. Создайте новый заказ.");
+        }
+
         order.Status = status;
 
         if (status == "Cancelled")
@@ -466,6 +504,7 @@ public class ProductionManagementService(ApplicationDbContext dbContext)
         await RefreshOrderProgressAsync();
 
         return await dbContext.WorkOrders
+            .AsNoTracking()
             .Include(order => order.Product)
             .ThenInclude(product => product!.ProductMaterials)
             .ThenInclude(productMaterial => productMaterial.Material)
@@ -478,6 +517,7 @@ public class ProductionManagementService(ApplicationDbContext dbContext)
         await RefreshOrderProgressAsync();
 
         return await dbContext.WorkOrders
+            .AsNoTracking()
             .Include(order => order.Product)
             .Where(order => order.ProductionLineId == lineId)
             .OrderBy(order => order.StartDate)

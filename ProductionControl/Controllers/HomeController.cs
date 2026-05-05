@@ -18,12 +18,14 @@ public class HomeController(ProductionManagementService service) : Controller
             OrderStatus = orderStatus,
             Materials = await service.GetMaterialsAsync(false),
             Products = await service.GetProductsAsync(productCategory, productSearch),
-            Orders = await service.GetOrdersAsync(orderStatus, null),
-            Lines = await service.GetLinesAsync(false)
+            Lines = await service.GetLinesAsync(false),
+            Orders = await service.GetOrdersAsync(orderStatus, null)
         };
 
         ViewBag.Categories = await service.GetCategoriesAsync();
-        ViewBag.AvailableLines = await service.GetLinesAsync(true);
+        ViewBag.AvailableLines = viewModel.Lines
+            .Where(line => line.Status == "Active" && line.CurrentWorkOrderId is null)
+            .ToList();
 
         return View(viewModel);
     }
@@ -95,7 +97,15 @@ public class HomeController(ProductionManagementService service) : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> StartOrder(int id)
     {
-        await service.SetOrderStatusAsync(id, "InProgress");
+        try
+        {
+            await service.SetOrderStatusAsync(id, "InProgress");
+        }
+        catch (InvalidOperationException ex)
+        {
+            TempData["Error"] = ex.Message;
+        }
+
         return RedirectToAction(nameof(Index));
     }
 
@@ -109,9 +119,9 @@ public class HomeController(ProductionManagementService service) : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> UpdateLineStatus(int id, string status, double efficiencyFactor)
+    public async Task<IActionResult> UpdateLineStatus(int id, string status, double efficiencyFactor, int? displayedProgress)
     {
-        await service.UpdateLineStatusAsync(id, status);
+        await service.UpdateLineStatusAsync(id, status, displayedProgress);
         await service.UpdateLineEfficiencyAsync(id, efficiencyFactor);
         return RedirectToAction(nameof(Index));
     }

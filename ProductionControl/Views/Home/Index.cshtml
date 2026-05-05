@@ -283,16 +283,32 @@
                             <td class="order-deadline">@order.EstimatedEndDate.ToString("dd MMM HH:mm")</td>
                             <td>
                                 <div class="inline-actions">
-                                    <form asp-action="StartOrder" method="post">
-                                        @Html.AntiForgeryToken()
-                                        <input type="hidden" name="id" value="@order.Id" />
-                                        <button class="btn btn-sm btn-success" type="submit">Запустить</button>
-                                    </form>
-                                    <form asp-action="CancelOrder" method="post">
-                                        @Html.AntiForgeryToken()
-                                        <input type="hidden" name="id" value="@order.Id" />
-                                        <button class="btn btn-sm btn-outline-danger" type="submit">Отменить</button>
-                                    </form>
+                                    @if (order.Status == "Pending")
+                                    {
+                                        <form asp-action="StartOrder" method="post">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="id" value="@order.Id" />
+                                            <button class="btn btn-sm btn-success" type="submit">Запустить</button>
+                                        </form>
+                                        <form asp-action="CancelOrder" method="post">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="id" value="@order.Id" />
+                                            <button class="btn btn-sm btn-outline-danger" type="submit">Отменить</button>
+                                        </form>
+                                    }
+                                    else if (order.Status == "InProgress")
+                                    {
+                                        <button class="btn btn-sm btn-secondary" type="button" disabled>В работе</button>
+                                        <form asp-action="CancelOrder" method="post">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="id" value="@order.Id" />
+                                            <button class="btn btn-sm btn-outline-danger" type="submit">Отменить</button>
+                                        </form>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-sm btn-secondary" type="button" disabled>Недоступно</button>
+                                    }
                                 </div>
                             </td>
                         </tr>
@@ -347,11 +363,12 @@
                     <div class="progress-track"><div class="progress-fill" style="width:@(line.CurrentWorkOrder?.ProgressPercent ?? 0)%"></div></div>
                     <p class="progress-label">Прогресс: <span class="line-progress-value">@(line.CurrentWorkOrder?.ProgressPercent ?? 0)</span>%</p>
                     <div class="inline-actions">
-                        <form asp-action="UpdateLineStatus" method="post" class="line-form">
+                        <form asp-action="UpdateLineStatus" method="post" class="line-form line-status-form">
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="id" value="@line.Id" />
                             <input type="hidden" name="efficiencyFactor" value="@line.EfficiencyFactor" />
                             <input type="hidden" name="status" value="@(line.Status == "Active" ? "Stopped" : "Active")" />
+                            <input type="hidden" name="displayedProgress" class="line-displayed-progress" value="@(line.CurrentWorkOrder?.ProgressPercent ?? 0)" />
                             <button class="btn btn-sm btn-outline-light" type="submit">@(line.Status == "Active" ? "Остановить линию" : "Запустить линию")</button>
                         </form>
                         <form asp-action="UpdateLineStatus" method="post" class="line-form">
